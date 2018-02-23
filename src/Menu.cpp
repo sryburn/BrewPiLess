@@ -193,7 +193,6 @@ void pickTempSetting(ReadTemp readTemp, WriteTemp writeTemp, const char* tempNam
 
 		if(rotaryEncoder.changed()){
 			lastChangeTime = ticks.seconds();
-			//blinkTimer = 0;
 			startVal = tenthsToFixed(rotaryEncoder.read());
 			display.printTemperatureAt(12, row, startVal);
 
