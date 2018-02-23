@@ -37,6 +37,7 @@
 Menu menu;
 
 #define MENU_TIMEOUT 10u
+#define BLINKING_TIME 250
 
 void Menu::pickSettingToChange(){
 	// ensure beer temp is displayed
@@ -56,7 +57,8 @@ bool blinkLoop(
 	void (*pushed)())	// handle selection
 {
 	uint16_t lastChangeTime = ticks.seconds();
-	uint8_t blinkTimer = 0;
+	uint32_t switchTime=0;
+	bool hidden=true;
 
 	while(ticks.timeSince(lastChangeTime) < MENU_TIMEOUT){ // time out at 10 seconds
 	//#if ESP8266
@@ -64,13 +66,17 @@ bool blinkLoop(
 	//#endif
 		if(rotaryEncoder.changed()){
 			lastChangeTime = ticks.seconds();
-			blinkTimer = 0;
+			switchTime=0;
+			hidden=true;
 			changed();
 		}
-		if (blinkTimer==0)
-			show();
-		else if (blinkTimer==128)
-			hide();
+		uint32_t current=millis();
+		if((current - switchTime) > BLINKING_TIME){
+			if(hidden) show();
+			else hide();
+			hidden = ! hidden;
+			switchTime = current;
+		}
 
 		if (rotaryEncoder.pushed()) {
 			rotaryEncoder.resetPushed();
@@ -78,9 +84,6 @@ bool blinkLoop(
 			pushed();
 			return true;
 		}
-
-		blinkTimer++;
-		wait.millis(3); // delay for blinking
 	}
 	return false;
 }
@@ -180,7 +183,8 @@ void pickTempSetting(ReadTemp readTemp, WriteTemp writeTemp, const char* tempNam
 
 	rotaryEncoder.setRange(fixedToTenths(oldSetting), fixedToTenths(tempControl.cc.tempSettingMin), fixedToTenths(tempControl.cc.tempSettingMax));
 
-	uint8_t blinkTimer = 0;
+	uint32_t switchTime=0;
+	bool hidden=true;
 	uint16_t lastChangeTime = ticks.seconds();
 	while(ticks.timeSince(lastChangeTime) < MENU_TIMEOUT){ // time out at 10 seconds
 //		#if ESP8266
@@ -189,7 +193,7 @@ void pickTempSetting(ReadTemp readTemp, WriteTemp writeTemp, const char* tempNam
 
 		if(rotaryEncoder.changed()){
 			lastChangeTime = ticks.seconds();
-			blinkTimer = 0;
+			//blinkTimer = 0;
 			startVal = tenthsToFixed(rotaryEncoder.read());
 			display.printTemperatureAt(12, row, startVal);
 
@@ -204,14 +208,17 @@ void pickTempSetting(ReadTemp readTemp, WriteTemp writeTemp, const char* tempNam
 			}
 		}
 		else{
-			if(blinkTimer == 0){
-				display.printTemperatureAt(12, row, startVal);
+			uint32_t current=millis();
+			if((current - switchTime) > BLINKING_TIME){
+				if(hidden){
+					display.printTemperatureAt(12, row, startVal);
+				}
+				else{
+					display.printAt_P(12, row, STR_6SPACES); // only 5 needed, but 6 is okay to and lets us re-use the string
+				}
+				hidden = ! hidden;
+				switchTime = current;
 			}
-			if(blinkTimer == 128){
-				display.printAt_P(12, row, STR_6SPACES); // only 5 needed, but 6 is okay to and lets us re-use the string
-			}
-			blinkTimer++;
-			wait.millis(3); // delay for blinking
 		}
 	}
 	// Time Out. Setting is not written
